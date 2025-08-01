@@ -1,0 +1,14 @@
+# Railway Template Configuration
+# This file helps Railway understand your project structure
+
+[build]
+command = "npm install"
+
+[start]  
+command = "npm start"
+
+[environment]
+NODE_ENV = "production"
+
+# Railway will automatically provide DATABASE_URL for PostgreSQL
+# You just need to set JWT_SECRET in Railway's environment variables
