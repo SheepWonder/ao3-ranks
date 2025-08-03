@@ -4,6 +4,8 @@ const axios = require('axios');
 const cheerio = require('cheerio');
 const jwt = require('jsonwebtoken');
 
+const DOMAIN_URL = process.env.DOMAIN_URL || 'https://www.fanficfanatic.com';
+
 // Load environment variables first
 require('dotenv').config({ path: __dirname + '/.env' });
 
