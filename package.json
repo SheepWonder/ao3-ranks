@@ -12,7 +12,14 @@
   "engines": {
     "node": ">=18.0.0"
   },
-  "keywords": ["ao3", "fanfiction", "recommendations"],
+  "keywords": [
+    "ao3",
+    "fanfiction",
+    "recommendations"
+  ],
   "author": "MissterTame",
-  "license": "MIT"
+  "license": "MIT",
+  "dependencies": {
+    "pg": "^8.16.3"
+  }
 }

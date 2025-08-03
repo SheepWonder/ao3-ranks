@@ -5,6 +5,8 @@ const cheerio = require('cheerio');
 const jwt = require('jsonwebtoken');
 
 const DOMAIN_URL = process.env.DOMAIN_URL || 'https://www.fanficfanatic.com';
+// Use Railway's private domain for internal/private connections
+const PRIVATE_DOMAIN = process.env.RAILWAY_PRIVATE_DOMAIN || process.env.RAILWAY_TCP_PROXY_DOMAIN;
 
 // Load environment variables first
 require('dotenv').config({ path: __dirname + '/.env' });
@@ -70,29 +72,25 @@ app.post('/api/auth/signup',
         }
         
         // Check if user already exists
-        const existingUser = database.userQueries.findUserByCredentials.get(username, email);
+        const existingUser = await database.findUserByUsernameOrEmail(username, email);
         if (existingUser) {
             return res.status(409).json({ error: 'Username or email already exists' });
         }
-        
         // Hash password and create user
         const passwordHash = await database.hashPassword(password);
-        const result = database.userQueries.createUser.run(username, email, passwordHash);
-        
+        const newUser = await database.createUser(username, email, passwordHash);
         // Create default fic list for new user
-        database.ficListQueries.createDefaultList.run(result.lastInsertRowid);
-        
+        await database.createDefaultList(newUser.id);
         // Generate JWT token
         const token = jwt.sign(
-            { userId: result.lastInsertRowid, username }, 
+            { userId: newUser.id, username }, 
             process.env.JWT_SECRET, 
             { expiresIn: '24h' }
         );
-        
         res.status(201).json({
             message: 'User created successfully',
             token,
-            user: { id: result.lastInsertRowid, username, email }
+            user: { id: newUser.id, username, email }
         });
         
     } catch (error) {
@@ -110,24 +108,21 @@ app.post('/api/auth/login',
         const { username, password } = req.body;
         
         // Find user
-        const user = database.userQueries.findUserByCredentials.get(username, username);
+        const user = await database.findUserByUsername(username);
         if (!user) {
             return res.status(401).json({ error: 'Invalid credentials' });
         }
-        
         // Check password
         const isValidPassword = await database.comparePassword(password, user.password_hash);
         if (!isValidPassword) {
             return res.status(401).json({ error: 'Invalid credentials' });
         }
-        
         // Generate JWT token with shorter expiration
         const token = jwt.sign(
             { userId: user.id, username: user.username }, 
             process.env.JWT_SECRET, 
             { expiresIn: '24h' }
         );
-        
         res.json({
             message: 'Login successful',
             token,
@@ -141,8 +136,8 @@ app.post('/api/auth/login',
 });
 
 // Protected route to get user profile
-app.get('/api/auth/profile', authenticateToken, (req, res) => {
-    const user = database.userQueries.findUserById.get(req.user.userId);
+app.get('/api/auth/profile', authenticateToken, async (req, res) => {
+    const user = await database.findUserById(req.user.userId);
     if (!user) {
         return res.status(404).json({ error: 'User not found' });
     }
@@ -150,38 +145,17 @@ app.get('/api/auth/profile', authenticateToken, (req, res) => {
 });
 
 // Fic List Routes
-app.get('/api/lists/public', security.searchLimiter, (req, res) => {
+app.get('/api/lists/public', security.searchLimiter, async (req, res) => {
     try {
         const { search, limit = 20 } = req.query;
         let lists;
-        
         if (search) {
-            // Create different search patterns for relevance scoring
             const exactMatch = search;
             const partialMatch = `%${search}%`;
-            
-            // Parameters for relevance scoring:
-            // 1. Exact title match (highest priority)
-            // 2. Partial title match
-            // 3. Exact description match  
-            // 4. Partial description match
-            // 5. Username match
-            // 6-8. WHERE clause matches
-            lists = database.ficListQueries.searchPublicLists.all(
-                exactMatch,        // Exact title match (score 10)
-                partialMatch,      // Partial title match (score 8)
-                exactMatch,        // Exact description match (score 6)
-                partialMatch,      // Partial description match (score 4)
-                partialMatch,      // Username match (score 2)
-                partialMatch,      // WHERE: title LIKE
-                partialMatch,      // WHERE: description LIKE
-                partialMatch,      // WHERE: username LIKE
-                parseInt(limit)
-            );
+            lists = await database.searchPublicLists(exactMatch, partialMatch, exactMatch, partialMatch, partialMatch, partialMatch, partialMatch, partialMatch, parseInt(limit));
         } else {
-            lists = database.ficListQueries.getPublicLists.all(parseInt(limit));
+            lists = await database.getPublicLists(parseInt(limit));
         }
-        
         res.json({ lists });
     } catch (error) {
         console.error('Error fetching public lists:', error);
@@ -189,9 +163,9 @@ app.get('/api/lists/public', security.searchLimiter, (req, res) => {
     }
 });
 
-app.get('/api/lists/my', authenticateToken, (req, res) => {
+app.get('/api/lists/my', authenticateToken, async (req, res) => {
     try {
-        const lists = database.ficListQueries.getUserLists.all(req.user.userId);
+        const lists = await database.getUserLists(req.user.userId);
         res.json({ lists });
     } catch (error) {
         console.error('Error fetching user lists:', error);
@@ -203,7 +177,7 @@ app.post('/api/lists/create',
     authenticateToken,
     security.listValidation,
     security.handleValidationErrors,
-    (req, res) => {
+    async (req, res) => {
     try {
         const { name, description, isPublic } = req.body;
         
@@ -216,18 +190,12 @@ app.post('/api/lists/create',
         }
         
         // Create the list
-        const result = database.ficListQueries.createList.run(
-            req.user.userId,
-            name.trim(),
-            description?.trim() || '',
-            isPublic ? 1 : 0
-        );
-        
+        const newList = await database.createList(req.user.userId, name.trim(), description?.trim() || '', isPublic ? 1 : 0);
         res.status(201).json({
             message: 'List created successfully',
-            listId: result.lastInsertRowid,
+            listId: newList.id,
             list: {
-                id: result.lastInsertRowid,
+                id: newList.id,
                 name: name.trim(),
                 description: description?.trim() || '',
                 is_public: isPublic ? 1 : 0
@@ -242,83 +210,73 @@ app.post('/api/lists/create',
 
 // Delete a list (only if user owns it)
 app.delete('/api/lists/:listId', authenticateToken, (req, res) => {
-    try {
-        const listId = parseInt(req.params.listId);
-        const userId = req.user.userId;
-        
-        if (!listId || isNaN(listId)) {
-            return res.status(400).json({ error: 'Invalid list ID' });
+    async (req, res) => {
+        try {
+            const listId = parseInt(req.params.listId);
+            const userId = req.user.userId;
+            if (!listId || isNaN(listId)) {
+                return res.status(400).json({ error: 'Invalid list ID' });
+            }
+            // First check if the list exists and belongs to the user
+            const list = await database.getListById(listId);
+            if (!list) {
+                return res.status(404).json({ error: 'List not found' });
+            }
+            if (list.user_id !== userId) {
+                return res.status(403).json({ error: 'You can only delete your own lists' });
+            }
+            // Check if the list has fics (optional warning, but we'll allow deletion)
+            const ficCount = await database.getListFicCount(listId);
+            // Delete the list (CASCADE will handle fics deletion)
+            const deleted = await database.deleteList(listId, userId);
+            if (!deleted) {
+                return res.status(404).json({ error: 'List not found or already deleted' });
+            }
+            res.json({
+                message: 'List deleted successfully',
+                deletedFics: ficCount.count
+            });
+        } catch (error) {
+            console.error('Error deleting list:', error);
+            res.status(500).json({ error: 'Internal server error' });
         }
-        
-        // First check if the list exists and belongs to the user
-        const list = database.ficListQueries.getListById.get(listId);
-        if (!list) {
-            return res.status(404).json({ error: 'List not found' });
-        }
-        
-        if (list.user_id !== userId) {
-            return res.status(403).json({ error: 'You can only delete your own lists' });
-        }
-        
-        // Check if the list has fics (optional warning, but we'll allow deletion)
-        const ficCount = database.ficListQueries.getListFicCount.get(listId);
-        
-        // Delete the list (CASCADE will handle fics deletion)
-        const result = database.ficListQueries.deleteList.run(listId, userId);
-        
-        if (result.changes === 0) {
-            return res.status(404).json({ error: 'List not found or already deleted' });
-        }
-        
-        res.json({
-            message: 'List deleted successfully',
-            deletedFics: ficCount.count
-        });
-        
-    } catch (error) {
-        console.error('Error deleting list:', error);
-        res.status(500).json({ error: 'Internal server error' });
     }
 });
 
 // Fic Routes
 app.get('/api/fics/search', security.searchLimiter, (req, res) => {
-    try {
-        const { query, limit = 20 } = req.query;
-        
-        if (!query) {
-            return res.status(400).json({ error: 'Search query is required' });
+    async (req, res) => {
+        try {
+            const { query, limit = 20 } = req.query;
+            if (!query) {
+                return res.status(400).json({ error: 'Search query is required' });
+            }
+            const searchTerm = `%${query}%`;
+            const fics = await database.searchPublicFics(searchTerm, searchTerm, searchTerm, searchTerm, parseInt(limit));
+            res.json({ fics });
+        } catch (error) {
+            console.error('Error searching fics:', error);
+            res.status(500).json({ error: 'Internal server error' });
         }
-        
-        const searchTerm = `%${query}%`;
-        const fics = database.ficQueries.searchPublicFics.all(
-            searchTerm, searchTerm, searchTerm, searchTerm, 
-            parseInt(limit)
-        );
-        
-        res.json({ fics });
-    } catch (error) {
-        console.error('Error searching fics:', error);
-        res.status(500).json({ error: 'Internal server error' });
     }
 });
 
 app.get('/api/fics/list/:listId', (req, res) => {
-    try {
-        const { listId } = req.params;
-        const fics = database.ficQueries.getListFics.all(listId);
-        
-        // Get list ownership information
-        const listInfo = database.ficListQueries.getListById.get(listId);
-        
-        res.json({ 
-            fics,
-            listOwner: listInfo ? listInfo.user_id : null,
-            listName: listInfo ? listInfo.name : null
-        });
-    } catch (error) {
-        console.error('Error fetching list fics:', error);
-        res.status(500).json({ error: 'Internal server error' });
+    async (req, res) => {
+        try {
+            const { listId } = req.params;
+            const fics = await database.getListFics(listId);
+            // Get list ownership information
+            const listInfo = await database.getListById(listId);
+            res.json({ 
+                fics,
+                listOwner: listInfo ? listInfo.user_id : null,
+                listName: listInfo ? listInfo.name : null
+            });
+        } catch (error) {
+            console.error('Error fetching list fics:', error);
+            res.status(500).json({ error: 'Internal server error' });
+        }
     }
 });
 
@@ -335,13 +293,11 @@ app.post('/api/fics/add',
         }
         
         // Verify user owns the list
-        const lists = database.ficListQueries.getUserLists.all(req.user.userId);
+        const lists = await database.getUserLists(req.user.userId);
         const targetList = lists.find(list => list.id === listId);
-        
         if (!targetList) {
             return res.status(403).json({ error: 'You can only add fics to your own lists' });
         }
-        
         // Use provided fic data or try to extract from AO3
         let metadata = ficData;
         if (!metadata) {
@@ -355,9 +311,8 @@ app.post('/api/fics/add',
                 });
             }
         }
-        
         // Add fic to database
-        const result = database.ficQueries.addFic.run(
+        const newFic = await database.addFic(
             listId,
             ao3Url,
             metadata.title || 'Unknown Title',
@@ -371,10 +326,9 @@ app.post('/api/fics/add',
             metadata.warnings || '',
             metadata.status || 'Unknown'
         );
-        
         res.status(201).json({
             message: 'Fic added successfully',
-            ficId: result.lastInsertRowid
+            ficId: newFic.id
         });
         
     } catch (error) {
@@ -432,24 +386,19 @@ app.delete('/api/fics/:ficId', authenticateToken, async (req, res) => {
         }
         
         // First, check if the fic exists and get its list info
-        const ficInfo = database.ficQueries.getFicWithOwnership.get(ficId);
-        
+        const ficInfo = await database.getFicWithOwnership(ficId);
         if (!ficInfo) {
             return res.status(404).json({ error: 'Fic not found' });
         }
-        
         // Check if the current user is the owner of the list
         if (ficInfo.list_owner_id !== userId) {
             return res.status(403).json({ error: 'Only the list owner can remove fics from this list' });
         }
-        
         // Remove the fic
-        const deleteResult = database.ficQueries.deleteFic.run(ficId);
-        
-        if (deleteResult.changes === 0) {
+        const deleted = await database.deleteFic(ficId);
+        if (!deleted) {
             return res.status(404).json({ error: 'Fic not found or already deleted' });
         }
-        
         res.json({ 
             success: true, 
             message: 'Fic removed successfully',
