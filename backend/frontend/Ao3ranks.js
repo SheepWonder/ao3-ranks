@@ -1,7 +1,7 @@
 // AO3 Fic Link Extractor and Display with Real Database Backend
 
 // API Configuration
-const API_BASE_URL = 'https://ao3-ranks.up.railway.app';
+const API_BASE_URL = 'https://www.fanficfanatics.com/api';
 let authToken = localStorage.getItem('authToken');
 
 // Helper function for API calls
