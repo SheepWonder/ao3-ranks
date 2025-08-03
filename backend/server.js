@@ -154,7 +154,7 @@ app.get('/api/lists/public', security.searchLimiter, async (req, res) => {
         if (search) {
             const exactMatch = search;
             const partialMatch = `%${search}%`;
-            lists = await database.searchPublicLists(exactMatch, partialMatch, exactMatch, partialMatch, partialMatch, partialMatch, partialMatch, partialMatch, parseInt(limit));
+            lists = await database.ficListQueries.searchPublicLists(exactMatch, partialMatch, exactMatch, partialMatch, partialMatch, partialMatch, partialMatch, partialMatch, parseInt(limit));
         } else {
             lists = await database.getPublicLists(parseInt(limit));
         }
