@@ -19,6 +19,9 @@ const security = require('./security');
 const app = express();
 const PORT = process.env.PORT || 3000;
 
+// Serve static frontend files from 'frontend' folder
+app.use(express.static('frontend'));
+
 // Initialize database on startup
 database.initializeDatabase();
 
