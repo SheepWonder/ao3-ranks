@@ -34,6 +34,8 @@ app.use(security.securityHeaders);
 app.use(cors(security.corsOptions));
 app.use(security.generalLimiter);
 app.use(express.json({ limit: '10mb' })); // Limit JSON payload size
+// Trust first proxy (needed for correct rate limiting/user IP in production)
+app.set('trust proxy', 1);
 
 // JWT Authentication middleware
 const authenticateToken = (req, res, next) => {
