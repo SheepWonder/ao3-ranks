@@ -1,7 +1,7 @@
 // AO3 Fic Link Extractor and Display with Real Database Backend
 
 // API Configuration
-const API_BASE_URL = 'https://www.fanficfanatic.com/api';
+const API_BASE_URL = 'https://www.fanficfanatic.com';
 let authToken = localStorage.getItem('authToken');
 
 // Helper function for API calls
