@@ -71,18 +71,20 @@ const userQueries = {
 const ficListQueries = {
   // Create default fic list for new user
   async createDefaultList(userId) {
+    const now = new Date();
     await pool.query(
-      `INSERT INTO fic_lists (user_id, name, description, is_public)
-       VALUES ($1, 'My Fics', 'My personal fic recommendations', FALSE)`,
-      [userId]
+      `INSERT INTO fic_lists (user_id, name, description, is_public, created_at, updated_at)
+       VALUES ($1, 'My Fics', 'My personal fic recommendations', FALSE, $2, $2)`,
+      [userId, now]
     );
   },
   // Create a new fic list
   async createList(userId, name, description, isPublic) {
+    const now = new Date();
     const result = await pool.query(
-      `INSERT INTO fic_lists (user_id, name, description, is_public)
-       VALUES ($1, $2, $3, $4) RETURNING id`,
-      [userId, name, description, isPublic]
+      `INSERT INTO fic_lists (user_id, name, description, is_public, created_at, updated_at)
+       VALUES ($1, $2, $3, $4, $5, $5) RETURNING id`,
+      [userId, name, description, isPublic, now]
     );
     return result.rows[0];
   },
@@ -153,9 +155,10 @@ const ficListQueries = {
   },
   // Update list
   async updateList(id, userId, name, description, isPublic) {
+    const now = new Date();
     await pool.query(
-      `UPDATE fic_lists SET name = $1, description = $2, is_public = $3, updated_at = CURRENT_TIMESTAMP WHERE id = $4 AND user_id = $5`,
-      [name, description, isPublic, id, userId]
+      `UPDATE fic_lists SET name = $1, description = $2, is_public = $3, updated_at = $4 WHERE id = $5 AND user_id = $6`,
+      [name, description, isPublic, now, id, userId]
     );
   },
   // Delete list (only if user owns it)
