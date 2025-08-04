@@ -4,6 +4,17 @@
 const API_BASE_URL = 'https://www.fanficfanatic.com';
 let authToken = localStorage.getItem('authToken');
 
+// Helper to check if a string is a valid JWT
+function isValidJWT(token) {
+  if (!token || typeof token !== 'string') return false;
+  const parts = token.split('.');
+  return parts.length === 3 && parts.every(p => p.length > 0);
+}
+
+// Log JWT validity on page load
+console.log('authToken in localStorage:', authToken);
+console.log('Is valid JWT:', isValidJWT(authToken));
+
 // Helper function for API calls
 async function apiCall(endpoint, options = {}) {
     const url = `${API_BASE_URL}${endpoint}`;
