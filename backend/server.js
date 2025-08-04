@@ -562,10 +562,10 @@ app.use((err, req, res, next) => {
 
 // Start server
 app.listen(PORT, () => {
-    console.log(`🚀 AO3 Ranks Backend running on port ${PORT}`);
-    console.log(`📝 API Documentation: http://localhost:${PORT}`);
-    console.log(`❤️  Health Check: http://localhost:${PORT}/health`);
-    console.log(`⚠️  Remember to respect AO3's terms of service and rate limits!`);
+  console.log(`🚀 AO3 Ranks Backend running on port ${PORT}`);
+  console.log(`📝 API Documentation: http://localhost:${PORT}`);
+  console.log(`❤️  Health Check: http://localhost:${PORT}/health`);
+  console.log(`⚠️  Remember to respect AO3's terms of service and rate limits!`);
 });
 
 module.exports = app;
