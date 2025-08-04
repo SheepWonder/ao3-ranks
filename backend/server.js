@@ -554,6 +554,12 @@ app.get('/health', (req, res) => {
     });
 });
 
+// Global error handler (must be last middleware)
+app.use((err, req, res, next) => {
+  console.error('Uncaught error:', err);
+  res.status(500).json({ error: 'Internal server error', details: err.message });
+});
+
 // Start server
 app.listen(PORT, () => {
     console.log(`🚀 AO3 Ranks Backend running on port ${PORT}`);
