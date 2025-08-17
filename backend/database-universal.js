@@ -541,13 +541,25 @@ module.exports = {
     get queries() { return queries; },
     hashPassword,
     comparePassword,
-    
+
+    // Alias for compatibility: findUserByUsernameOrEmail (calls findUserByCredentials)
+    async findUserByUsernameOrEmail(identifier) {
+        // This will work for both username and email
+        if (this.queries && this.queries.userQueries && this.queries.userQueries.findUserByCredentials) {
+            return await this.queries.userQueries.findUserByCredentials(identifier);
+        } else if (typeof this.findUserByCredentials === 'function') {
+            return await this.findUserByCredentials(identifier);
+        } else {
+            throw new Error('findUserByCredentials not implemented');
+        }
+    },
+
     // Migration helpers
     async exportData() {
         // Will implement backup/export functionality
         console.log('📦 Exporting data for migration...');
     },
-    
+
     async importData(data) {
         // Will implement data import functionality
         console.log('📥 Importing data from backup...');
