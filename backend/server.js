@@ -15,7 +15,7 @@ require('dotenv').config({ path: __dirname + '/.env' });
 console.log('JWT_SECRET loaded:', process.env.JWT_SECRET ? 'Yes' : 'No');
 
 // Import database functions
-const database = require('./database');
+const database = require('./database-universal');
 
 // Import security middleware
 const security = require('./security');

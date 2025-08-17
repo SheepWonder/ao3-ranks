@@ -1,5 +1,5 @@
 // Quick test to verify list creation works
-const { initializeDatabase, ficListQueries, userQueries } = require('./database');
+const { initializeDatabase, ficListQueries, userQueries } = require('./database-universal');
 
 async function testListCreation() {
     console.log('🧪 Testing list creation functionality...\n');
