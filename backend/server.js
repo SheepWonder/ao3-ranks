@@ -79,8 +79,8 @@ app.post('/api/auth/signup',
             return res.status(409).json({ error: 'Username or email already exists' });
         }
         // Hash password and create user
-        const passwordHash = await database.hashPassword(password);
-        const newUser = await database.createUser(username, email, passwordHash);
+    const passwordHash = await database.hashPassword(password);
+    const newUser = await database.queries.userQueries.createUser(username, email, passwordHash);
         // Create default fic list for new user
         await database.createDefaultList(newUser.id);
         // Generate JWT token
