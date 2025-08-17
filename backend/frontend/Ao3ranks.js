@@ -337,6 +337,9 @@ async function handleSignup(e) {
     const email = document.getElementById('signup-email').value.trim();
     const password = document.getElementById('signup-password').value;
     const confirmPassword = document.getElementById('signup-confirm-password').value;
+
+    // Debug: Log password value before sending (remove after testing!)
+    console.log('Signup password value (debug):', password);
     
     // Validation
     if (password !== confirmPassword) {
