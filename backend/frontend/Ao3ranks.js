@@ -363,7 +363,7 @@ async function handleSignup(e) {
         // Call API
         const response = await apiCall('/api/auth/signup', {
             method: 'POST',
-            body: JSON.stringify({ username, email, password })
+            body: JSON.stringify({ username, email, password, confirmPassword })
         });
         
         // Store auth token and user data
